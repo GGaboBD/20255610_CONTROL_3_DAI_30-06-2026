@@ -1,4 +1,5 @@
 from flask import Flask, jsonify, request
+from database import obtener_conexion, convertir_fila_a_diccionario
 
 app = Flask(__name__)
 
@@ -13,7 +14,8 @@ libros = {
 def inicio():
     return jsonify({
         "mensaje": "Bienvenido a la app de biblioteca",
-        "version": "1.0",
+        "version": "2.0",
+        "almacenamiento": "SQLite",
         "endpoints": [
             "GET /libros",        # Muestra toda la info
             "GET /libros/<id>",   # Info de un libro especifico
@@ -25,35 +27,19 @@ def inicio():
 
 @app.get("/libros")
 def mostrar_libros():
-    return jsonify(list(libros.values()))
 
-@app.get("/libros/<int:id>")
-def obtener_libro(id):
-    libro = libros.get(id)
+    conexion = obtener_conexion()
 
-    if libro:
-        return jsonify(libro)
-    return jsonify({"error": "libro no encontrado"}),404
+    libros = conexion.execute(
+        "SELECT * FROM libros"
+    ).fetchall()
 
-@app.post("/libros")
-def agregar_libro():
-    datos = request.get_json()
+    conexion.close()
 
-    if not datos:
-        return jsonify({"error": "Debe enviar informacion"})
-    if "titulo" not in datos or "autor" not in datos or "disponible" not in datos:
-        return jsonify({"error": "Los campos son requeridos"}), 400
-    
-    nuevo_id = max(libros.keys())+1
-
-    libros[nuevo_id] = {
-        "id": nuevo_id,
-        "titulo": datos["titulo"],
-        "autor": datos["autor"],
-        "disponible": datos["disponible"]
-    }
-
-    return jsonify(libros[nuevo_id]),201
+    return jsonify([
+        convertir_fila_a_diccionario(libro)
+        for libro in libros
+    ])
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5001)
+    app.run(debug=True)
